@@ -78,6 +78,11 @@ cp .env.example .env
 
 ## 사용법
 
+> `analslack` 명령은 서브커맨드 방식입니다 (`analslack --weekly` (X) → `analslack weekly` (O)).
+> `analslack: command not found`가 나면 가상환경이 활성화되어 있는지 확인하세요
+> (`source .venv/bin/activate`, 새 터미널을 열었다면 매번 다시 실행). venv 활성화 여부와
+> 무관하게 항상 되는 대안: `python3 -m analslack weekly` 처럼 `python3 -m analslack <서브커맨드>`로 실행.
+
 ### 1. 데이터 수집 (증분 동기화)
 
 ```bash
