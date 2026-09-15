@@ -13,14 +13,24 @@ def sync_channel(
     slack: SlackChannelClient,
     channel_id: str,
     full_resync: bool = False,
+    since_ts: Optional[float] = None,
 ) -> int:
     """채널의 스레드/메시지를 DB로 동기화한다.
 
     [고객사-프로젝트] 형식의 스레드(최초 메시지 기준)만 대상으로 하며,
     각 스레드의 최초 메시지 + 답글 전체를 저장한다.
     반환값: 새로 저장/갱신된 메시지 수.
+
+    since_ts가 주어지면 저장된 동기화 지점(last_synced_ts)이나 full_resync
+    여부와 무관하게 해당 시각 이후만 가져온다. 채널 메시지가 너무 많아
+    전체 히스토리를 다 가져오고 싶지 않을 때(특히 최초 실행 시) 사용한다.
     """
-    oldest = None if full_resync else db.get_last_synced_ts(conn, channel_id)
+    if since_ts is not None:
+        oldest = since_ts
+    elif full_resync:
+        oldest = None
+    else:
+        oldest = db.get_last_synced_ts(conn, channel_id)
 
     updated_count = 0
     max_ts_seen = oldest or 0.0

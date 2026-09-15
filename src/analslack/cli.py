@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 from datetime import date, datetime
+from typing import Optional
 
 from . import db, reports
 from .config import Config
@@ -21,11 +22,26 @@ def _write_output(text: str, output: str | None) -> None:
 
 def cmd_sync(args: argparse.Namespace) -> None:
     cfg = Config.from_env()
+
+    since_ts: Optional[float] = None
+    if args.since:
+        try:
+            since_date = date.fromisoformat(args.since)
+        except ValueError:
+            raise RuntimeError(
+                f"--since 값 '{args.since}'을(를) 날짜(YYYY-MM-DD)로 해석할 수 없습니다."
+            )
+        since_ts = datetime(
+            since_date.year, since_date.month, since_date.day, tzinfo=cfg.timezone
+        ).timestamp()
+
     slack = SlackChannelClient.from_token(cfg.require_slack_token())
     channel_id = slack.resolve_channel_id(cfg.channel)
 
     with db.open_db(cfg.db_path) as conn:
-        count = sync_channel(conn, slack, channel_id, full_resync=args.full)
+        count = sync_channel(
+            conn, slack, channel_id, full_resync=args.full, since_ts=since_ts
+        )
 
     print(f"동기화 완료: 메시지 {count}건 처리 (channel={cfg.channel})")
 
@@ -71,6 +87,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_sync = sub.add_parser("sync", help="Slack 채널에서 새 스레드/메시지를 수집")
     p_sync.add_argument(
         "--full", action="store_true", help="처음부터 전체 재수집 (기존 sync 지점 무시)"
+    )
+    p_sync.add_argument(
+        "--since",
+        metavar="YYYY-MM-DD",
+        help=(
+            "이 날짜 이후 메시지만 수집 (최초 실행 시 채널 히스토리가 너무 많을 때 유용). "
+            "지정하면 기존 sync 지점/--full과 무관하게 이 날짜부터 가져오며, "
+            "이후 sync 실행 시에는 이번에 수집된 지점부터 이어서 증분 동기화된다."
+        ),
     )
     p_sync.set_defaults(func=cmd_sync)
 
