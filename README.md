@@ -81,8 +81,21 @@ cp .env.example .env
 |---|---|---|
 | `SLACK_BOT_TOKEN` | Bot User OAuth Token (`sync` 실행 시 필수) | - |
 | `SLACK_CHANNEL` | 채널명 또는 채널 ID | `team-sales` |
-| `ANALSLACK_DB_PATH` | SQLite DB 파일 경로 | `analslack.db` |
+| `ANALSLACK_DB_PATH` | SQLite DB 파일 경로 | `~/.analslack/analslack.db` (홈 디렉터리, 저장소 밖) |
 | `ANALSLACK_TIMEZONE` | 주 단위 집계 기준 시간대 | `Asia/Seoul` |
+
+`ANALSLACK_DB_PATH`가 저장소 밖(홈 디렉터리)을 기본값으로 쓰는 이유: 저장소를
+재clone하거나 패키지를 재설치해도 이 값을 따로 건드리지 않는 한 이전에
+`analslack sync`로 모아둔 데이터를 그대로 이어서 사용할 수 있게 하기 위해서입니다.
+여러 사람이 같은 DB를 공유하고 싶거나 특정 위치에 두고 싶다면 이 값을 원하는
+경로로 지정하세요 (새 환경에서도 같은 값으로 맞추면 데이터가 유지됩니다).
+
+> **이전 버전(이 변경 전)을 이미 쓰고 있었다면**: 그때는 DB가 저장소 안
+> `./analslack.db`에 있었습니다. 새로 clone한 저장소에서도 기존 데이터를 이어
+> 쓰려면, 기존 저장소의 `analslack.db`를 `~/.analslack/analslack.db`로
+> 한 번만 옮기거나(`mkdir -p ~/.analslack && mv analslack.db ~/.analslack/`),
+> `.env`에 `ANALSLACK_DB_PATH=/기존/경로/analslack.db`를 지정해 계속 그 경로를
+> 쓰면 됩니다.
 
 ## 사용법
 
