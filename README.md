@@ -213,6 +213,12 @@ nginx만 외부에 노출되고 gunicorn은 127.0.0.1 내부 통신만 사용).
 sudo analslack serve --port 80 --host 0.0.0.0
 ```
 
+> `sudo: 'analslack': command not found`가 난다면 `analslack`이 가상환경(venv)
+> 안에만 설치돼 있어서 그렇습니다 — `sudo`는 기본적으로 PATH를 초기화해서 venv의
+> `bin/`을 못 찾습니다. venv가 활성화된 같은 셸에서 아래처럼 절대경로로 넘기세요:
+> `sudo $(which analslack) serve --port 80 --host 0.0.0.0`
+> (`which analslack`이 sudo보다 먼저 현재 셸에서 평가되어 경로로 치환됩니다.)
+
 전체 Flask 프로세스가 root 권한으로 실행되므로 보안상 권장하지 않습니다. 그래도
 써야 한다면 `setcap`으로 python 실행파일에 권한만 부여하는 방법이 sudo 실행보다는
 낫습니다: `sudo setcap 'cap_net_bind_service=+ep' $(readlink -f $(which python3))`
