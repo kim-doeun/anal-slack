@@ -105,3 +105,12 @@ def create_app(cfg: Config) -> Flask:
         )
 
     return app
+
+
+def create_wsgi_app() -> Flask:
+    """gunicorn 등 WSGI 서버에서 팩토리로 바로 사용할 수 있는 진입점.
+
+    예) gunicorn "analslack.web:create_wsgi_app()" -w 2 -b 127.0.0.1:8080
+    (괄호를 붙여 호출 형태로 넘기면 gunicorn이 팩토리 함수로 인식한다)
+    """
+    return create_app(Config.from_env())

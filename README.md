@@ -171,6 +171,57 @@ analslack serve --host 0.0.0.0     # 다른 기기에서도 접속 허용 (사�
 `sync`로 데이터가 갱신된 후 대시보드를 새로고침하면 최신 상태가 반영됩니다
 (별도 캐시 없이 매 요청마다 SQLite를 직접 조회).
 
+#### 80번 포트로 열기 / 외부(AWS EC2 등)에 배포하기
+
+`analslack serve`(Flask 개발 서버)는 80번 포트를 직접 쓸 수 없습니다 — 리눅스에서
+1024 미만 포트는 root 권한이 있어야 바인딩할 수 있고, 개발 서버 자체도 동시 접속이
+많은 프로덕션 용도로는 권장되지 않습니다. 아래 두 방법 중 하나를 쓰세요.
+
+**방법 1 (권장): nginx 리버스 프록시 + gunicorn**
+
+```bash
+pip install -e ".[prod]"   # gunicorn 설치 (requirements.txt를 쓴다면: pip install gunicorn)
+
+# 8080 등 일반 포트에서 gunicorn으로 실행 (127.0.0.1에만 바인딩 — 외부 직접 노출 안 함)
+# 뒤에 괄호를 붙이면 gunicorn이 팩토리 함수로 인식해서 호출한다
+gunicorn "analslack.web:create_wsgi_app()" -w 2 -b 127.0.0.1:8080
+```
+
+nginx가 80번 포트를 받아 내부 8080으로 넘기도록 설정합니다
+(`/etc/nginx/sites-available/analslack` 등):
+
+```nginx
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+`sudo ln -s /etc/nginx/sites-available/analslack /etc/nginx/sites-enabled/ && sudo systemctl reload nginx`
+후 EC2 보안 그룹 인바운드에 **80번 포트**를 열어주면 됩니다 (8080은 굳이 안 열어도 됨 —
+nginx만 외부에 노출되고 gunicorn은 127.0.0.1 내부 통신만 사용).
+
+**방법 2 (간단하지만 비권장): 80번을 직접 바인딩**
+
+```bash
+sudo analslack serve --port 80 --host 0.0.0.0
+```
+
+전체 Flask 프로세스가 root 권한으로 실행되므로 보안상 권장하지 않습니다. 그래도
+써야 한다면 `setcap`으로 python 실행파일에 권한만 부여하는 방법이 sudo 실행보다는
+낫습니다: `sudo setcap 'cap_net_bind_service=+ep' $(readlink -f $(which python3))`
+(가상환경의 python3 경로 기준. 시스템 python에 적용하면 다른 프로그램에도 영향이
+가니 가상환경 전용 python에만 적용하는 걸 권장).
+
+두 방법 모두 EC2 **보안 그룹 인바운드 규칙**에 해당 포트(80)가 열려 있어야
+외부에서 접속됩니다.
+
 ## 테스트
 
 Slack 연결 없이 파싱/취합 로직만 검증합니다. (가상환경 활성화된 상태에서)

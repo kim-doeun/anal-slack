@@ -9,6 +9,9 @@ dependencies = [
     "flask>=3.0",
 ]
 
+[project.optional-dependencies]
+prod = ["gunicorn>=21"]
+
 [project.scripts]
 analslack = "analslack.cli:main"
 
