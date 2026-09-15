@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from typing import Dict, Iterator, Optional
 
 from slack_sdk import WebClient
@@ -48,16 +49,34 @@ class SlackChannelClient:
         raise ValueError(f"채널 '{channel}'을(를) 찾을 수 없습니다 (봇이 채널에 초대되어 있는지 확인하세요).")
 
     def resolve_user_name(self, user_id: Optional[str]) -> Optional[str]:
+        """user_id -> 표시할 이름. 우선순위: 표시 이름 > 실명 > Slack 아이디(핸들).
+
+        전부 실패하면(users:read 권한 없음 등) None을 반환한다 — 실패를
+        사용자 ID 문자열로 위장해서 캐시하면, DB에는 "이름"처럼 저장되지만
+        실제로는 실패 흔적이라 다음 sync에서도 재시도 없이 영구히 그 값에
+        고정돼버린다. None으로 두면 다음 sync 실행 때 다시 시도된다.
+        """
         if not user_id:
             return None
         if user_id in self._user_name_cache:
             return self._user_name_cache[user_id]
+        name: Optional[str] = None
         try:
             resp = self.client.users_info(user=user_id)
             profile = resp["user"]
-            name = profile.get("profile", {}).get("display_name") or profile.get("real_name") or user_id
-        except SlackApiError:
-            name = user_id
+            name = (
+                profile.get("profile", {}).get("display_name")
+                or profile.get("real_name")
+                or profile.get("name")
+                or None
+            )
+        except SlackApiError as e:
+            error_code = e.response.get("error") if e.response else str(e)
+            print(
+                f"경고: 사용자 {user_id} 이름 조회 실패 ({error_code}) — 멘션/작성자 표시에 ID가 그대로 남습니다. "
+                f"Bot Token에 users:read 권한이 있는지 확인하세요.",
+                file=sys.stderr,
+            )
         self._user_name_cache[user_id] = name
         return name
 
