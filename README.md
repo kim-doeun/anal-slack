@@ -32,11 +32,21 @@ Slack API (conversations.history / conversations.replies)
 
 ## 설치
 
+최근 Debian/Ubuntu 계열은 시스템 Python에 직접 `pip install`을 금지합니다
+(`error: externally-managed-environment`). 가상환경(venv)을 만들어 그 안에서
+설치/실행하세요.
+
 ```bash
-pip install -r requirements.txt
-# 또는
+python3 -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+
 pip install -e .
+# 또는
+pip install -r requirements.txt
 ```
+
+이후 모든 `analslack ...` / `pytest` 명령은 가상환경이 활성화된 상태(`source .venv/bin/activate`)에서 실행하면 됩니다.
+새 터미널을 열 때마다 다시 활성화해야 합니다.
 
 ## Slack App 설정
 
@@ -106,7 +116,7 @@ analslack history --project ERP고도화 -o history.md         # 파일로 저�
 
 ## 테스트
 
-Slack 연결 없이 파싱/취합 로직만 검증합니다.
+Slack 연결 없이 파싱/취합 로직만 검증합니다. (가상환경 활성화된 상태에서)
 
 ```bash
 pip install pytest
