@@ -56,6 +56,15 @@ def cmd_weekly(args: argparse.Namespace) -> None:
     _write_output(report.to_markdown(cfg.timezone), args.output)
 
 
+def cmd_serve(args: argparse.Namespace) -> None:
+    cfg = Config.from_env()
+    from .web import create_app  # Flask 의존성은 serve 실행 시에만 필요
+
+    app = create_app(cfg)
+    print(f"대시보드 실행: http://{args.host}:{args.port} (DB: {cfg.db_path})")
+    app.run(host=args.host, port=args.port, debug=args.debug)
+
+
 def cmd_history(args: argparse.Namespace) -> None:
     cfg = Config.from_env()
 
@@ -106,6 +115,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_weekly.add_argument("--output", "-o", help="결과를 파일로 저장 (기본: 표준출력)")
     p_weekly.set_defaults(func=cmd_weekly)
+
+    p_serve = sub.add_parser("serve", help="사업별 진행 현황을 볼 수 있는 웹 대시보드 실행")
+    p_serve.add_argument("--host", default="127.0.0.1", help="바인딩할 호스트 (기본: 127.0.0.1)")
+    p_serve.add_argument("--port", type=int, default=5000, help="포트 (기본: 5000)")
+    p_serve.add_argument("--debug", action="store_true", help="Flask 디버그 모드로 실행")
+    p_serve.set_defaults(func=cmd_serve)
 
     p_history = sub.add_parser("history", help="사업별 전체 이력 조회")
     p_history.add_argument("--customer", help="고객사명으로 필터")

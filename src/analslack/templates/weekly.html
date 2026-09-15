@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}주간 리포트 ({{ report.week_start.isoformat() }}) · Sales 사업 대시보드{% endblock %}
+{% block content %}
+
+<div class="week-nav">
+  <a href="{{ url_for('weekly', week_of=prev_week) }}">&larr; 이전 주</a>
+  <strong>{{ report.week_start.isoformat() }} ~ {{ report.week_end.isoformat() }}</strong>
+  <a href="{{ url_for('weekly', week_of=next_week) }}">다음 주 &rarr;</a>
+</div>
+
+{% if not report.projects %}
+<section class="card">
+  <p class="muted">이번 주 공유된 내용이 없습니다.</p>
+</section>
+{% else %}
+  {% for project_key, rows in report.projects.items() %}
+  <section class="card">
+    <h2 style="margin-bottom:2px;">
+      {% set first = rows[0] %}
+      <a href="{{ url_for('project_detail', customer=first['customer'], project=first['project']) }}">{{ project_key }}</a>
+    </h2>
+    {% if first['permalink'] %}
+      <p class="muted" style="margin-top:0;"><a href="{{ first['permalink'] }}" target="_blank" rel="noopener">Slack 스레드 보기</a></p>
+    {% endif %}
+    {% for row in rows %}
+      <div class="msg{% if row['is_parent'] %} msg-parent{% endif %}">
+        <div class="msg-meta">{{ row['created_ts']|ts_datetime }} · {{ row['user_name'] or row['user_id'] or 'unknown' }}</div>
+        <p>{{ row['text'] }}</p>
+      </div>
+    {% endfor %}
+  </section>
+  {% endfor %}
+{% endif %}
+
+{% endblock %}

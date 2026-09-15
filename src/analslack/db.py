@@ -194,10 +194,37 @@ def messages_for_project(
 def list_projects(conn: sqlite3.Connection) -> Sequence[sqlite3.Row]:
     return conn.execute(
         """
-        SELECT customer, project, COUNT(DISTINCT thread_ts) AS thread_count,
-               MIN(created_ts) AS first_ts, MAX(created_ts) AS last_ts
-        FROM threads
-        GROUP BY customer, project
+        SELECT t.customer, t.project,
+               COUNT(DISTINCT t.thread_ts) AS thread_count,
+               COUNT(m.ts) AS message_count,
+               MIN(t.created_ts) AS first_ts,
+               MAX(t.created_ts) AS last_ts
+        FROM threads t
+        LEFT JOIN messages m ON m.thread_ts = t.thread_ts
+        GROUP BY t.customer, t.project
         ORDER BY last_ts DESC
         """
     ).fetchall()
+
+
+def count_messages_in_range(
+    conn: sqlite3.Connection,
+    start_ts: float,
+    end_ts: float,
+    customer: Optional[str] = None,
+    project: Optional[str] = None,
+) -> int:
+    query = """
+        SELECT COUNT(*) FROM messages m
+        JOIN threads t ON t.thread_ts = m.thread_ts
+        WHERE m.created_ts >= ? AND m.created_ts < ?
+    """
+    params: list = [start_ts, end_ts]
+    if customer:
+        query += " AND t.customer = ?"
+        params.append(customer)
+    if project:
+        query += " AND t.project = ?"
+        params.append(project)
+    row = conn.execute(query, params).fetchone()
+    return row[0] if row else 0

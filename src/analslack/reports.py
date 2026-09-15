@@ -20,6 +20,38 @@ def week_bounds(anchor: date, tz: ZoneInfo) -> tuple[float, float, date, date]:
     return start.timestamp(), end.timestamp(), monday, sunday
 
 
+@dataclass(frozen=True)
+class WeekPoint:
+    week_start: date
+    week_end: date
+    count: int
+
+
+def weekly_activity_series(
+    conn: sqlite3.Connection,
+    tz: ZoneInfo,
+    weeks: int = 12,
+    customer: Optional[str] = None,
+    project: Optional[str] = None,
+    anchor: Optional[date] = None,
+) -> "list[WeekPoint]":
+    """최근 N주(오늘이 속한 주 포함)의 주별 메시지 건수 추이를 반환한다.
+
+    activity 없는 주도 0건으로 포함해 연속된 시계열을 만든다.
+    customer/project를 지정하면 해당 사업으로 범위를 좁힌다.
+    """
+    anchor = anchor or date.today()
+    points: list[WeekPoint] = []
+    for i in range(weeks - 1, -1, -1):
+        week_anchor = anchor - timedelta(weeks=i)
+        start_ts, end_ts, monday, sunday = week_bounds(week_anchor, tz)
+        count = db.count_messages_in_range(
+            conn, start_ts, end_ts, customer=customer, project=project
+        )
+        points.append(WeekPoint(week_start=monday, week_end=sunday, count=count))
+    return points
+
+
 def _fmt_ts(ts: float, tz: ZoneInfo) -> str:
     return datetime.fromtimestamp(ts, tz=tz).strftime("%m/%d %H:%M")
 

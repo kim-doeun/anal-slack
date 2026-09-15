@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Sales 사업 대시보드{% endblock %}</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page-plane:      #f9f9f7;
+    --surface-1:       #fcfcfb;
+    --text-primary:    #0b0b0b;
+    --text-secondary:  #52514e;
+    --text-muted:      #898781;
+    --gridline:        #e1e0d9;
+    --baseline:        #c3c2b7;
+    --border:          rgba(11,11,11,0.10);
+    --series-1:        #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page-plane:      #0d0d0d;
+      --surface-1:       #1a1a19;
+      --text-primary:    #ffffff;
+      --text-secondary:  #c3c2b7;
+      --text-muted:      #898781;
+      --gridline:        #2c2c2a;
+      --baseline:        #383835;
+      --border:          rgba(255,255,255,0.10);
+      --series-1:        #3987e5;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page-plane);
+    color: var(--text-primary);
+  }
+  a { color: var(--series-1); }
+
+  .navbar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 14px 24px;
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--border);
+  }
+  .navbar .brand { font-weight: 700; }
+  .navbar a { text-decoration: none; color: var(--text-secondary); font-size: 14px; }
+  .navbar a:hover { color: var(--series-1); }
+
+  .page { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card h2 { margin-top: 0; font-size: 15px; color: var(--text-secondary); font-weight: 600; }
+
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th, .data-table td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--gridline);
+    font-variant-numeric: tabular-nums;
+  }
+  .data-table th { color: var(--text-muted); font-weight: 600; font-size: 12px; }
+  .data-table tr:hover td { background: var(--page-plane); }
+
+  .muted { color: var(--text-muted); }
+
+  .msg { padding: 6px 0 6px 12px; border-left: 2px solid var(--gridline); margin-bottom: 4px; }
+  .msg-parent { border-left-color: var(--series-1); }
+  .msg-meta { font-size: 12px; color: var(--text-muted); }
+  .msg p { margin: 2px 0 0; white-space: pre-wrap; }
+
+  .week-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font-size: 14px; }
+
+  /* charts */
+  .chart { width: 100%; height: auto; overflow: visible; }
+  .chart-grid { stroke: var(--gridline); stroke-width: 1; }
+  .chart-baseline { stroke: var(--baseline); stroke-width: 1; }
+  .chart-axis-label { fill: var(--text-muted); font-size: 10px; }
+  .chart-empty { fill: var(--text-muted); font-size: 13px; }
+
+  .chart-line { stroke: var(--series-1); stroke-width: 2; }
+  .chart-dot { fill: var(--series-1); }
+  .chart-hit { fill: transparent; }
+  .chart-tip { opacity: 0; transition: opacity .12s ease; pointer-events: none; }
+  .chart-pt:hover .chart-tip { opacity: 1; }
+  .chart-tip-bg { fill: var(--text-primary); }
+  .chart-tip-text { fill: var(--surface-1); font-size: 11px; }
+
+  .chart-bar { fill: var(--series-1); }
+  .chart-bar-row { text-decoration: none; cursor: default; }
+  a.chart-bar-row { cursor: pointer; }
+  a.chart-bar-row:hover .chart-bar { opacity: 0.8; }
+  a.chart-bar-row:hover .chart-row-label { fill: var(--series-1); }
+  .chart-row-label { fill: var(--text-secondary); font-size: 12px; }
+  .chart-value-label { fill: var(--text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+  <nav class="navbar">
+    <span class="brand">Sales 사업 대시보드</span>
+    <a href="{{ url_for('index') }}">전체 사업</a>
+    <a href="{{ url_for('weekly') }}">주간 리포트</a>
+  </nav>
+  <div class="page">
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

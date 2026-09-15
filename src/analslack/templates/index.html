@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Sales 사업 대시보드{% endblock %}
+{% block content %}
+
+<section class="card">
+  <h2>주간 전체 활동 추이 (최근 12주)</h2>
+  {{ trend_chart | safe }}
+</section>
+
+<section class="card">
+  <h2>사업별 메시지 수 Top {{ top_chart_limit or 15 }}</h2>
+  {{ top_chart | safe }}
+</section>
+
+<section class="card">
+  <h2>전체 사업 목록 ({{ projects|length }}개)</h2>
+  {% if projects %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>고객사</th>
+        <th>프로젝트</th>
+        <th>스레드</th>
+        <th>메시지</th>
+        <th>시작일</th>
+        <th>최근 활동</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for p in projects %}
+      <tr>
+        <td><a href="{{ url_for('project_detail', customer=p['customer'], project=p['project']) }}">{{ p['customer'] }}</a></td>
+        <td><a href="{{ url_for('project_detail', customer=p['customer'], project=p['project']) }}">{{ p['project'] }}</a></td>
+        <td>{{ p['thread_count'] }}</td>
+        <td>{{ p['message_count'] }}</td>
+        <td class="muted">{{ p['first_ts']|ts_date }}</td>
+        <td class="muted">{{ p['last_ts']|ts_date }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">아직 수집된 사업이 없습니다. <code>analslack sync</code>를 먼저 실행하세요.</p>
+  {% endif %}
+</section>
+
+{% endblock %}
