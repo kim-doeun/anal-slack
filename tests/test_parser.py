@@ -27,10 +27,16 @@ def test_no_brackets_is_unmatched():
     assert t.customer == "미분류"
 
 
-def test_bracket_without_dash_is_unmatched():
-    t = parse_title("[공지] 다음주 워크샵 있습니다")
+def test_bracket_only_without_trailing_text_is_unmatched():
+    t = parse_title("[공지]")
     assert not t.matched
-    assert t.project == "공지"
+
+
+def test_no_dash_no_brackets_body_is_unmatched():
+    t = parse_title("오늘 점심 뭐 먹지 [완료]")
+    # 대괄호는 있지만 '-'도 없고 뒤에 프로젝트명으로 볼 텍스트도 없는 경우는 아님:
+    # 여기서는 대괄호 뒤에 아무 텍스트도 없어 미분류 처리된다.
+    assert not t.matched
 
 
 def test_extra_text_after_bracket_ignored_for_matching():
@@ -44,3 +50,31 @@ def test_whitespace_trimmed():
     t = parse_title("[  카카오 -  결제시스템개선  ] 진행상황 공유")
     assert t.customer == "카카오"
     assert t.project == "결제시스템개선"
+
+
+# 포맷 2: [고객사]프로젝트명 (대괄호 안에 '-' 없음)
+
+def test_format2_no_space_after_bracket():
+    t = parse_title("[삼성전자]ERP고도화")
+    assert t.matched
+    assert t.customer == "삼성전자"
+    assert t.project == "ERP고도화"
+
+
+def test_format2_with_space_after_bracket():
+    t = parse_title("[삼성전자] ERP고도화")
+    assert t.matched
+    assert t.customer == "삼성전자"
+    assert t.project == "ERP고도화"
+
+
+def test_format2_customer_whitespace_trimmed():
+    t = parse_title("[  삼성전자  ]ERP고도화")
+    assert t.customer == "삼성전자"
+    assert t.project == "ERP고도화"
+
+
+def test_format2_project_key_matches_format1_for_same_business():
+    t1 = parse_title("[삼성전자-ERP고도화] 킥오프")
+    t2 = parse_title("[삼성전자]ERP고도화")
+    assert t1.project_key == t2.project_key == "삼성전자-ERP고도화"
