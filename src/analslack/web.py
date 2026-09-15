@@ -6,6 +6,7 @@ from flask import Flask, abort, render_template, request, url_for
 
 from . import charts, db, reports
 from .config import Config
+from .mentions import resolve_mentions
 
 TOP_PROJECTS_LIMIT = 15
 TREND_WEEKS = 12
@@ -26,6 +27,7 @@ def create_app(cfg: Config) -> Flask:
 
     app.jinja_env.filters["ts_date"] = ts_date
     app.jinja_env.filters["ts_datetime"] = ts_datetime
+    app.jinja_env.filters["mentions"] = resolve_mentions
 
     @app.route("/")
     def index():
@@ -71,6 +73,7 @@ def create_app(cfg: Config) -> Flask:
             trend = reports.weekly_activity_series(
                 conn, cfg.timezone, weeks=TREND_WEEKS, customer=customer, project=project
             )
+            user_names = db.get_user_names(conn)
 
         chart = charts.line_chart_svg(
             [(p.week_start.strftime("%m/%d"), p.count) for p in trend],
@@ -83,6 +86,7 @@ def create_app(cfg: Config) -> Flask:
             project=project,
             history=history,
             chart=chart,
+            user_names=user_names,
         )
 
     @app.route("/weekly")
@@ -95,6 +99,7 @@ def create_app(cfg: Config) -> Flask:
 
         with db.open_db(cfg.db_path) as conn:
             report = reports.build_weekly_report(conn, anchor, cfg.timezone)
+            user_names = db.get_user_names(conn)
 
         return render_template(
             "weekly.html",
@@ -102,6 +107,7 @@ def create_app(cfg: Config) -> Flask:
             anchor=anchor,
             prev_week=(anchor - timedelta(days=7)).isoformat(),
             next_week=(anchor + timedelta(days=7)).isoformat(),
+            user_names=user_names,
         )
 
     return app

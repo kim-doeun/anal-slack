@@ -8,6 +8,7 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 from . import db
+from .mentions import resolve_mentions
 
 
 def week_bounds(anchor: date, tz: ZoneInfo) -> tuple[float, float, date, date]:
@@ -69,7 +70,8 @@ class WeeklyReport:
     week_end: date
     projects: "dict[str, list[sqlite3.Row]]"  # key: "고객사-프로젝트"
 
-    def to_markdown(self, tz: ZoneInfo) -> str:
+    def to_markdown(self, tz: ZoneInfo, user_names: "Optional[dict[str, str]]" = None) -> str:
+        user_names = user_names or {}
         lines = [
             f"# 주간 공유 취합 ({self.week_start.isoformat()} ~ {self.week_end.isoformat()})",
             "",
@@ -87,7 +89,8 @@ class WeeklyReport:
             for row in rows:
                 who = row["user_name"] or row["user_id"] or "unknown"
                 when = _fmt_ts(row["created_ts"], tz)
-                lines.append(f"- `{when}` **{who}**: {_snippet(row['text'])}")
+                text = resolve_mentions(row["text"], user_names)
+                lines.append(f"- `{when}` **{who}**: {_snippet(text)}")
             lines.append("")
         return "\n".join(lines)
 
@@ -112,7 +115,8 @@ class ProjectHistory:
     project: Optional[str]
     rows: "list[sqlite3.Row]"
 
-    def to_markdown(self, tz: ZoneInfo) -> str:
+    def to_markdown(self, tz: ZoneInfo, user_names: "Optional[dict[str, str]]" = None) -> str:
+        user_names = user_names or {}
         title = self.project or self.customer or "전체"
         lines = [f"# 사업 이력: {title}", ""]
         if not self.rows:
@@ -130,7 +134,8 @@ class ProjectHistory:
             who = row["user_name"] or row["user_id"] or "unknown"
             when = _fmt_ts(row["created_ts"], tz)
             marker = "📌" if row["is_parent"] else "-"
-            lines.append(f"{marker} `{when}` **{who}**: {_snippet(row['text'], limit=1000)}")
+            text = resolve_mentions(row["text"], user_names)
+            lines.append(f"{marker} `{when}` **{who}**: {_snippet(text, limit=1000)}")
         lines.append("")
         return "\n".join(lines)
 

@@ -4,8 +4,20 @@ import sqlite3
 from typing import Optional
 
 from . import db
+from .mentions import extract_mentioned_user_ids
 from .parser import parse_title
 from .slack_client import SlackChannelClient
+
+
+def _cache_user(conn: sqlite3.Connection, slack: SlackChannelClient, user_id: Optional[str]) -> Optional[str]:
+    """사용자 이름을 조회하고, Slack 토큰 없이 읽는 경로(weekly/history/serve)에서도
+    <@U...> 멘션을 치환할 수 있도록 DB에도 캐시해둔다."""
+    if not user_id:
+        return None
+    name = slack.resolve_user_name(user_id)
+    if name:
+        db.upsert_user(conn, user_id, name)
+    return name
 
 
 def sync_channel(
@@ -63,6 +75,12 @@ def sync_channel(
             msg_ts = float(msg["ts"])
             is_parent = msg["ts"] == root["ts"]
             user_id = msg.get("user")
+            text = msg.get("text", "")
+
+            user_name = _cache_user(conn, slack, user_id)
+            for mentioned_id in extract_mentioned_user_ids(text):
+                _cache_user(conn, slack, mentioned_id)
+
             db.upsert_message(
                 conn,
                 db.MessageRow(
@@ -71,8 +89,8 @@ def sync_channel(
                     channel_id=channel_id,
                     is_parent=is_parent,
                     user_id=user_id,
-                    user_name=slack.resolve_user_name(user_id),
-                    text=msg.get("text", ""),
+                    user_name=user_name,
+                    text=text,
                     created_ts=msg_ts,
                 ),
             )

@@ -17,7 +17,7 @@
     {% if row['thread_ts'] != ns.current_thread %}
       {% set ns.current_thread = row['thread_ts'] %}
       <h3 style="margin-bottom:4px;">
-        {{ row['title_raw'] }}
+        {{ row['title_raw']|mentions(user_names) }}
         {% if row['permalink'] %}
           · <a href="{{ row['permalink'] }}" target="_blank" rel="noopener">Slack에서 보기</a>
         {% endif %}
@@ -25,7 +25,7 @@
     {% endif %}
     <div class="msg{% if row['is_parent'] %} msg-parent{% endif %}">
       <div class="msg-meta">{{ row['created_ts']|ts_datetime }} · {{ row['user_name'] or row['user_id'] or 'unknown' }}</div>
-      <p>{{ row['text'] }}</p>
+      <p>{{ row['text']|mentions(user_names) }}</p>
     </div>
   {% endfor %}
 </section>

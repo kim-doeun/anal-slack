@@ -42,6 +42,14 @@ CREATE TABLE IF NOT EXISTS sync_state (
     channel_id      TEXT PRIMARY KEY,
     last_synced_ts  REAL
 );
+
+-- 사용자 ID -> 이름 캐시. sync 시점(Slack API 접근 가능)에 채워두고,
+-- weekly/history/serve처럼 Slack 토큰 없이 DB만 읽는 경로에서 메시지 본문의
+-- <@U...> 멘션을 이름으로 치환하는 데 사용한다.
+CREATE TABLE IF NOT EXISTS users (
+    user_id  TEXT PRIMARY KEY,
+    name     TEXT NOT NULL
+);
 """
 
 
@@ -134,6 +142,21 @@ def upsert_message(conn: sqlite3.Connection, message: MessageRow) -> None:
             message.created_ts,
         ),
     )
+
+
+def upsert_user(conn: sqlite3.Connection, user_id: str, name: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO users (user_id, name) VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET name=excluded.name
+        """,
+        (user_id, name),
+    )
+
+
+def get_user_names(conn: sqlite3.Connection) -> "dict[str, str]":
+    rows = conn.execute("SELECT user_id, name FROM users").fetchall()
+    return {row["user_id"]: row["name"] for row in rows}
 
 
 def get_last_synced_ts(conn: sqlite3.Connection, channel_id: str) -> Optional[float]:

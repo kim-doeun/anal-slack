@@ -52,8 +52,9 @@ def cmd_weekly(args: argparse.Namespace) -> None:
 
     with db.open_db(cfg.db_path) as conn:
         report = reports.build_weekly_report(conn, anchor, cfg.timezone)
+        user_names = db.get_user_names(conn)
 
-    _write_output(report.to_markdown(cfg.timezone), args.output)
+    _write_output(report.to_markdown(cfg.timezone, user_names), args.output)
 
 
 def cmd_serve(args: argparse.Namespace) -> None:
@@ -82,8 +83,9 @@ def cmd_history(args: argparse.Namespace) -> None:
         history = reports.build_project_history(
             conn, customer=args.customer, project=args.project
         )
+        user_names = db.get_user_names(conn)
 
-    _write_output(history.to_markdown(cfg.timezone), args.output)
+    _write_output(history.to_markdown(cfg.timezone, user_names), args.output)
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -25,7 +25,7 @@
     {% for row in rows %}
       <div class="msg{% if row['is_parent'] %} msg-parent{% endif %}">
         <div class="msg-meta">{{ row['created_ts']|ts_datetime }} · {{ row['user_name'] or row['user_id'] or 'unknown' }}</div>
-        <p>{{ row['text'] }}</p>
+        <p>{{ row['text']|mentions(user_names) }}</p>
       </div>
     {% endfor %}
   </section>
