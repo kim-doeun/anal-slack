@@ -40,13 +40,17 @@ pip install -e .
 
 ## Slack App 설정
 
+`#team-sales`는 비공개(private) 채널이므로 아래 기준으로 설정합니다.
+
 1. https://api.slack.com/apps 에서 새 앱 생성 (Manifest 대신 From scratch로 진행)
 2. **OAuth & Permissions** → Bot Token Scopes 에 아래 권한 추가:
-   - `channels:history`, `channels:read` (공개 채널)
-   - `groups:history`, `groups:read` (비공개 채널인 경우)
+   - `groups:history`, `groups:read` (비공개 채널 읽기 — 필수)
    - `users:read` (작성자 이름 표시용)
+   - (만약 향후 공개 채널도 함께 수집한다면 `channels:history`, `channels:read`도 추가)
 3. 워크스페이스에 앱 설치 후 발급된 **Bot User OAuth Token**(`xoxb-...`) 복사
-4. `#team-sales` 채널에 해당 봇 초대: `/invite @봇이름`
+4. `#team-sales` 채널에 해당 봇을 **반드시 초대**: `/invite @봇이름`
+   - 비공개 채널은 봇이 멤버로 초대되어 있지 않으면 API 자체가 채널을 조회할 수 없습니다
+     (공개 채널과 달리 스코프만으로는 부족합니다).
 
 ## 환경 설정
 

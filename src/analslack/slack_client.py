@@ -9,8 +9,13 @@ from slack_sdk.errors import SlackApiError
 class SlackChannelClient:
     """Slack 채널의 스레드/메시지를 읽어오는 얇은 래퍼.
 
-    Bot Token 필요 스코프: channels:history, channels:read
-    (비공개 채널이면 groups:history, groups:read), users:read
+    conversations.history / conversations.replies API는 공개/비공개 채널을
+    동일하게 다루므로 이 클래스는 그대로 비공개 채널에도 쓸 수 있다.
+    단, 비공개 채널의 경우 Bot Token에 groups:history, groups:read 스코프가
+    필요하고, 봇이 해당 채널에 멤버로 초대되어 있어야 한다.
+
+    Bot Token 필요 스코프 (공개 채널): channels:history, channels:read, users:read
+    Bot Token 필요 스코프 (비공개 채널): groups:history, groups:read, users:read
     """
 
     def __init__(self, client: WebClient):
