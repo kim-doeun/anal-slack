@@ -19,9 +19,8 @@
     <thead>
       <tr>
         <th>고객사</th>
-        <th>프로젝트</th>
         <th>담당자</th>
-        <th>스레드</th>
+        <th>프로젝트</th>
         <th>메시지</th>
         <th>시작일</th>
         <th>최근 활동</th>
@@ -31,9 +30,8 @@
     {% for p in projects %}
       <tr>
         <td><a href="{{ url_for('project_detail', customer=p['customer'], project=p['project']) }}">{{ p['customer'] }}</a></td>
-        <td><a href="{{ url_for('project_detail', customer=p['customer'], project=p['project']) }}">{{ p['project'] }}</a></td>
         <td>{{ p['owner_name'] or p['owner_id'] or '-' }}</td>
-        <td>{{ p['thread_count'] }}</td>
+        <td><a class="col-project" href="{{ url_for('project_detail', customer=p['customer'], project=p['project']) }}">{{ p['project']|truncate(100, True, '...') }}</a></td>
         <td>{{ p['message_count'] }}</td>
         <td class="muted">{{ p['first_ts']|ts_date }}</td>
         <td class="muted">{{ p['last_ts']|ts_date }}</td>
