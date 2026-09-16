@@ -215,15 +215,32 @@ def messages_for_project(
 
 
 def list_projects(conn: sqlite3.Connection) -> Sequence[sqlite3.Row]:
+    """사업(고객사-프로젝트) 목록. 담당자는 가장 먼저 생성된 스레드(재개된 경우
+
+    포함, 최초 스레드 기준)를 연 사람 — 즉 그 스레드의 최초 메시지 작성자다.
+    """
     return conn.execute(
         """
+        WITH first_thread AS (
+            SELECT customer, project, thread_ts,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY customer, project ORDER BY created_ts ASC
+                   ) AS rn
+            FROM threads
+        )
         SELECT t.customer, t.project,
                COUNT(DISTINCT t.thread_ts) AS thread_count,
                COUNT(m.ts) AS message_count,
                MIN(t.created_ts) AS first_ts,
-               MAX(t.created_ts) AS last_ts
+               MAX(t.created_ts) AS last_ts,
+               owner_msg.user_name AS owner_name,
+               owner_msg.user_id AS owner_id
         FROM threads t
         LEFT JOIN messages m ON m.thread_ts = t.thread_ts
+        LEFT JOIN first_thread ft
+            ON ft.customer = t.customer AND ft.project = t.project AND ft.rn = 1
+        LEFT JOIN messages owner_msg
+            ON owner_msg.thread_ts = ft.thread_ts AND owner_msg.is_parent = 1
         GROUP BY t.customer, t.project
         ORDER BY last_ts DESC
         """

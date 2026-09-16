@@ -73,8 +73,10 @@ def cmd_history(args: argparse.Namespace) -> None:
         if args.list:
             rows = db.list_projects(conn)
             for row in rows:
+                owner = row["owner_name"] or row["owner_id"] or "-"
                 print(
                     f"{row['customer']}-{row['project']}\t"
+                    f"담당자={owner}\t"
                     f"threads={row['thread_count']}\t"
                     f"last={datetime.fromtimestamp(row['last_ts'], tz=cfg.timezone):%Y-%m-%d}"
                 )
