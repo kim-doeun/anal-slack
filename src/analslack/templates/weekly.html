@@ -14,6 +14,7 @@
   <table class="data-table" data-sortable>
     <thead>
       <tr>
+        <th></th>
         <th data-sort="text">고객사</th>
         <th data-sort="text">프로젝트</th>
         <th data-sort="text">담당자</th>
@@ -22,11 +23,23 @@
     </thead>
     <tbody>
     {% for row in summary_rows %}
-      <tr>
+      {% set detail_id = "wk-detail-" ~ loop.index0 %}
+      <tr data-detail-target="{{ detail_id }}">
+        <td><button type="button" class="expand-toggle" aria-expanded="false" aria-controls="{{ detail_id }}">▸</button></td>
         <td><a href="{{ url_for('project_detail', customer=row['customer'], project=row['project']) }}">{{ row['customer'] }}</a></td>
         <td><a class="col-project" href="{{ url_for('project_detail', customer=row['customer'], project=row['project']) }}">{{ row['project']|truncate(100, True, '...') }}</a></td>
         <td>{{ row['owner_name'] or row['owner_id'] or '-' }}</td>
         <td>{{ row['message_count'] }}</td>
+      </tr>
+      <tr id="{{ detail_id }}" class="detail-row" hidden>
+        <td colspan="5">
+          {% for m in report.projects[row['key']] %}
+            <div class="msg{% if m['is_parent'] %} msg-parent{% endif %}">
+              <div class="msg-meta">{{ m['created_ts']|ts_datetime }} · {{ m['user_name'] or m['user_id'] or 'unknown' }}</div>
+              <p>{{ m['text']|mentions(user_names) }}</p>
+            </div>
+          {% endfor %}
+        </td>
       </tr>
     {% endfor %}
     </tbody>
@@ -35,5 +48,22 @@
   <p class="muted">이번 주 공유된 내용이 없습니다.</p>
   {% endif %}
 </section>
+
+<script>
+(function () {
+  document.querySelectorAll('.expand-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var row = btn.closest('tr');
+      var detailId = row.getAttribute('data-detail-target');
+      var detail = detailId ? document.getElementById(detailId) : null;
+      if (!detail) return;
+      var willExpand = detail.hidden;
+      detail.hidden = !willExpand;
+      btn.textContent = willExpand ? '▾' : '▸';
+      btn.setAttribute('aria-expanded', String(willExpand));
+    });
+  });
+})();
+</script>
 
 {% endblock %}

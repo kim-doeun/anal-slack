@@ -129,13 +129,15 @@ def create_app(cfg: Config) -> Flask:
                 (p["customer"], p["project"]): (p["owner_name"], p["owner_id"])
                 for p in db.list_projects(conn)
             }
+            user_names = db.get_user_names(conn)
 
         summary_rows = []
-        for rows in report.projects.values():
+        for project_key, rows in report.projects.items():
             first = rows[0]
             owner_name, owner_id = owners.get((first["customer"], first["project"]), (None, None))
             summary_rows.append(
                 {
+                    "key": project_key,
                     "customer": first["customer"],
                     "project": first["project"],
                     "owner_name": owner_name,
@@ -148,6 +150,7 @@ def create_app(cfg: Config) -> Flask:
             "weekly.html",
             report=report,
             summary_rows=summary_rows,
+            user_names=user_names,
             anchor=anchor,
             prev_week=(anchor - timedelta(days=7)).isoformat(),
             next_week=(anchor + timedelta(days=7)).isoformat(),

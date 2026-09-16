@@ -99,6 +99,19 @@
   .data-table th.sort-asc::after { content: '▲'; font-size: 9px; }
   .data-table th.sort-desc::after { content: '▼'; font-size: 9px; }
 
+  .expand-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 2px 6px;
+    line-height: 1;
+  }
+  .expand-toggle:hover { color: var(--text-primary); }
+  tr.detail-row td { background: var(--page-plane); padding: 10px 10px 10px 34px; }
+  tr.detail-row[hidden] { display: none; }
+
   .muted { color: var(--text-muted); }
 
   .msg { padding: 6px 0 6px 12px; border-left: 2px solid var(--gridline); margin-bottom: 4px; }
@@ -155,14 +168,21 @@
       function sortTable(table, colIndex, type, dir) {
         var tbody = table.tBodies[0];
         if (!tbody) return;
-        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+        // 펼치기 상세 행(.detail-row)은 정렬 대상이 아니라, 자기 본행을
+        // 따라 함께 움직여야 한다 (data-detail-target으로 연결됨).
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr:not(.detail-row)'));
         rows.sort(function (a, b) {
           var av = cellValue(a, colIndex, type);
           var bv = cellValue(b, colIndex, type);
           var cmp = type === 'number' ? (av - bv) : String(av).localeCompare(String(bv), 'ko');
           return dir === 'asc' ? cmp : -cmp;
         });
-        rows.forEach(function (row) { tbody.appendChild(row); });
+        rows.forEach(function (row) {
+          tbody.appendChild(row);
+          var detailId = row.getAttribute('data-detail-target');
+          var detail = detailId ? document.getElementById(detailId) : null;
+          if (detail) tbody.appendChild(detail);
+        });
       }
 
       document.querySelectorAll('table[data-sortable]').forEach(function (table) {

@@ -278,3 +278,29 @@ def test_weekly_page_headers_match_requested_columns(tmp_path):
     thead = body.split("<thead>", 1)[1].split("</thead>", 1)[0]
     assert thead.index("고객사") < thead.index("프로젝트") < thead.index("담당자") < thead.index("메시지")
     assert 'data-sort="number">메시지' in thead
+
+
+def test_weekly_page_has_expandable_detail_rows_with_messages(tmp_path):
+    client, db_path = _make_client(tmp_path)
+    ts_this_week = datetime.now(TZ).replace(hour=10, minute=0, second=0, microsecond=0).timestamp()
+    _seed_project_at(db_path, "삼성전자", "ERP고도화", "7000.0001", ts_this_week)
+
+    resp = client.get("/weekly")
+    body = resp.get_data(as_text=True)
+
+    # 펼치기 버튼 + 연결된 상세 행(.detail-row, 기본은 hidden)이 있어야 한다
+    assert 'class="expand-toggle"' in body
+    assert 'data-detail-target="wk-detail-0"' in body
+    assert 'id="wk-detail-0" class="detail-row" hidden' in body
+    # 상세 행 안에 그 주 메시지(킥오프 텍스트, 댓글)가 실제로 들어있어야 한다
+    detail_section = body.split('id="wk-detail-0"', 1)[1].split("</tr>", 1)[0]
+    assert "킥오프" in detail_section
+    assert "댓글" in detail_section
+
+
+def test_weekly_sort_script_moves_detail_rows_with_their_summary_row():
+    # 정렬 시 상세 행이 본행을 따라가도록 하는 로직이 base.html에 있는지 확인
+    # (실제 재정렬 동작 자체는 JS라 Playwright로 별도 확인함 — 여기서는 회귀 방지용).
+    base_html = (Path(__file__).resolve().parents[1] / "src" / "analslack" / "templates" / "base.html").read_text()
+    assert "detail-row" in base_html
+    assert "data-detail-target" in base_html
