@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from flask import Flask, abort, render_template, request, url_for
+from flask import Flask, abort, redirect, render_template, request, url_for
 
 from . import charts, db, reports
 from .config import Config
@@ -31,16 +31,21 @@ def create_app(cfg: Config) -> Flask:
 
     @app.route("/")
     def index():
+        show_hidden = request.args.get("show_hidden") == "1"
+
         with db.open_db(cfg.db_path) as conn:
-            projects = db.list_projects(conn)
+            all_projects = db.list_projects(conn)
             trend = reports.weekly_activity_series(conn, cfg.timezone, weeks=TREND_WEEKS)
+
+        hidden_count = sum(1 for p in all_projects if p["hidden"])
+        projects = all_projects if show_hidden else [p for p in all_projects if not p["hidden"]]
 
         trend_chart = charts.line_chart_svg(
             [(p.week_start.strftime("%m/%d"), p.count) for p in trend],
             aria_label="주간 전체 활동 추이",
         )
 
-        top_items = sorted(projects, key=lambda p: p["message_count"], reverse=True)[
+        top_items = sorted(all_projects, key=lambda p: p["message_count"], reverse=True)[
             :TOP_PROJECTS_LIMIT
         ]
         top_chart = charts.bar_chart_svg(
@@ -62,7 +67,17 @@ def create_app(cfg: Config) -> Flask:
             projects=projects,
             trend_chart=trend_chart,
             top_chart=top_chart,
+            show_hidden=show_hidden,
+            hidden_count=hidden_count,
         )
+
+    @app.route("/project/<customer>/<project>/hidden", methods=["POST"])
+    def set_project_hidden(customer: str, project: str):
+        hidden = request.form.get("hidden") == "on"
+        with db.open_db(cfg.db_path) as conn:
+            db.set_project_hidden(conn, customer, project, hidden)
+        next_url = request.form.get("next") or url_for("index")
+        return redirect(next_url)
 
     @app.route("/project/<customer>/<project>")
     def project_detail(customer: str, project: str):

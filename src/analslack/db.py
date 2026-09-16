@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Iterator, Optional, Sequence
@@ -49,6 +50,15 @@ CREATE TABLE IF NOT EXISTS sync_state (
 CREATE TABLE IF NOT EXISTS users (
     user_id  TEXT PRIMARY KEY,
     name     TEXT NOT NULL
+);
+
+-- 대시보드 "전체 사업 목록"에서 사용자가 숨김 처리한 사업(고객사-프로젝트).
+-- 존재 = 숨김. sync/메시지 데이터에는 영향 없는 순수 화면 표시용 상태.
+CREATE TABLE IF NOT EXISTS hidden_projects (
+    customer  TEXT NOT NULL,
+    project   TEXT NOT NULL,
+    hidden_at REAL NOT NULL,
+    PRIMARY KEY (customer, project)
 );
 """
 
@@ -218,6 +228,8 @@ def list_projects(conn: sqlite3.Connection) -> Sequence[sqlite3.Row]:
     """사업(고객사-프로젝트) 목록. 담당자는 가장 먼저 생성된 스레드(재개된 경우
 
     포함, 최초 스레드 기준)를 연 사람 — 즉 그 스레드의 최초 메시지 작성자다.
+    hidden(0/1)은 대시보드에서 사용자가 숨김 처리했는지 여부 (필터링은
+    호출자가 한다 — 이 함수는 항상 전체를 반환).
     """
     return conn.execute(
         """
@@ -234,17 +246,37 @@ def list_projects(conn: sqlite3.Connection) -> Sequence[sqlite3.Row]:
                MIN(t.created_ts) AS first_ts,
                MAX(t.created_ts) AS last_ts,
                owner_msg.user_name AS owner_name,
-               owner_msg.user_id AS owner_id
+               owner_msg.user_id AS owner_id,
+               CASE WHEN hp.customer IS NOT NULL THEN 1 ELSE 0 END AS hidden
         FROM threads t
         LEFT JOIN messages m ON m.thread_ts = t.thread_ts
         LEFT JOIN first_thread ft
             ON ft.customer = t.customer AND ft.project = t.project AND ft.rn = 1
         LEFT JOIN messages owner_msg
             ON owner_msg.thread_ts = ft.thread_ts AND owner_msg.is_parent = 1
+        LEFT JOIN hidden_projects hp
+            ON hp.customer = t.customer AND hp.project = t.project
         GROUP BY t.customer, t.project
         ORDER BY last_ts DESC
         """
     ).fetchall()
+
+
+def set_project_hidden(conn: sqlite3.Connection, customer: str, project: str, hidden: bool) -> None:
+    if hidden:
+        conn.execute(
+            """
+            INSERT INTO hidden_projects (customer, project, hidden_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(customer, project) DO NOTHING
+            """,
+            (customer, project, time.time()),
+        )
+    else:
+        conn.execute(
+            "DELETE FROM hidden_projects WHERE customer = ? AND project = ?",
+            (customer, project),
+        )
 
 
 def count_messages_in_range(

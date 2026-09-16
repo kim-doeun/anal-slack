@@ -13,7 +13,14 @@
 </section>
 
 <section class="card">
-  <h2>전체 사업 목록 ({{ projects|length }}개)</h2>
+  <h2 style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <span>전체 사업 목록 ({{ projects|length }}개{% if hidden_count and not show_hidden %} · 숨김 {{ hidden_count }}개 제외{% endif %})</span>
+    {% if show_hidden %}
+      <a href="{{ url_for('index') }}" style="font-size:12px; font-weight:400;">숨김 항목 제외하고 보기</a>
+    {% elif hidden_count %}
+      <a href="{{ url_for('index', show_hidden=1) }}" style="font-size:12px; font-weight:400;">숨김 항목 포함 전체 보기 ({{ hidden_count }}개)</a>
+    {% endif %}
+  </h2>
   {% if projects %}
   <table class="data-table">
     <thead>
@@ -24,23 +31,36 @@
         <th>메시지</th>
         <th>시작일</th>
         <th>최근 활동</th>
+        <th>숨김</th>
       </tr>
     </thead>
     <tbody>
     {% for p in projects %}
-      <tr>
+      <tr{% if p['hidden'] %} class="row-hidden"{% endif %}>
         <td><a href="{{ url_for('project_detail', customer=p['customer'], project=p['project']) }}">{{ p['customer'] }}</a></td>
         <td>{{ p['owner_name'] or p['owner_id'] or '-' }}</td>
         <td><a class="col-project" href="{{ url_for('project_detail', customer=p['customer'], project=p['project']) }}">{{ p['project']|truncate(100, True, '...') }}</a></td>
         <td>{{ p['message_count'] }}</td>
         <td class="muted">{{ p['first_ts']|ts_date }}</td>
         <td class="muted">{{ p['last_ts']|ts_date }}</td>
+        <td>
+          <form method="post" action="{{ url_for('set_project_hidden', customer=p['customer'], project=p['project']) }}" class="hide-form">
+            <input type="hidden" name="next" value="{{ request.full_path }}">
+            <input type="checkbox" name="hidden" onchange="this.form.submit()" {% if p['hidden'] %}checked{% endif %}>
+          </form>
+        </td>
       </tr>
     {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <p class="muted">아직 수집된 사업이 없습니다. <code>analslack sync</code>를 먼저 실행하세요.</p>
+  <p class="muted">
+    {% if show_hidden or not hidden_count %}
+      아직 수집된 사업이 없습니다. <code>analslack sync</code>를 먼저 실행하세요.
+    {% else %}
+      전체 사업이 숨김 처리되어 있습니다. <a href="{{ url_for('index', show_hidden=1) }}">숨김 항목 포함 전체 보기</a>
+    {% endif %}
+  </p>
   {% endif %}
 </section>
 
