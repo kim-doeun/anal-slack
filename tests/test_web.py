@@ -69,7 +69,7 @@ def test_index_excludes_hidden_by_default(tmp_path):
     table_section = body.split("전체 사업 목록", 1)[1]
     assert "LG전자" in table_section
     assert "삼성전자" not in table_section
-    assert "숨김 1개 제외" in table_section
+    assert 'id="hidden-count-a">1<' in table_section
 
 
 def test_hiding_a_project_does_not_affect_top15_chart(tmp_path):
@@ -111,10 +111,11 @@ def test_toggle_hidden_route_hides_project(tmp_path):
     _seed_project(db_path, "삼성전자", "ERP고도화", "1000.0001")
 
     resp = client.post(
-        "/project/삼성전자/ERP고도화/hidden",
-        data={"hidden": "on", "next": "/"},
+        "/project/hidden?customer=삼성전자&project=ERP고도화",
+        data={"hidden": "on"},
     )
-    assert resp.status_code == 302
+    assert resp.status_code == 200
+    assert resp.get_json() == {"ok": True, "hidden": True}
 
     conn = db.connect(db_path)
     rows = list(db.list_projects(conn))
@@ -131,23 +132,51 @@ def test_toggle_hidden_route_unhides_when_unchecked(tmp_path):
     conn.close()
 
     # 체크 해제 시 브라우저는 "hidden" 필드를 아예 보내지 않는다
-    resp = client.post("/project/삼성전자/ERP고도화/hidden", data={"next": "/"})
-    assert resp.status_code == 302
+    resp = client.post("/project/hidden?customer=삼성전자&project=ERP고도화", data={})
+    assert resp.status_code == 200
+    assert resp.get_json() == {"ok": True, "hidden": False}
 
     conn = db.connect(db_path)
     rows = list(db.list_projects(conn))
     assert rows[0]["hidden"] == 0
 
 
-def test_toggle_hidden_redirects_to_next(tmp_path):
+def test_toggle_hidden_missing_params_is_bad_request(tmp_path):
+    client, _ = _make_client(tmp_path)
+    resp = client.post("/project/hidden", data={"hidden": "on"})
+    assert resp.status_code == 400
+
+
+def test_toggle_hidden_survives_slash_and_newline_in_project_name(tmp_path):
+    # 실제로 겪은 버그: Format 2 파싱이 잘못 걸려 프로젝트명에 메시지 본문
+    # 전체(멘션 목록, 줄바꿈, '/' 등)가 그대로 들어간 경우에도, customer/project를
+    # URL 경로가 아니라 쿼리스트링으로 넘기므로 라우팅이 깨지지 않아야 한다.
+    weird_project = "* <@U0B78M35BAR>\n<@U06ULC4CARJ>\nA/B 안건\n<@U0B4CTL8PKR>"
     client, db_path = _make_client(tmp_path)
-    _seed_project(db_path, "삼성전자", "ERP고도화", "1000.0001")
+    _seed_project(db_path, "가격 정책 초안 공유 미팅", weird_project, "1000.0001")
 
     resp = client.post(
-        "/project/삼성전자/ERP고도화/hidden",
-        data={"hidden": "on", "next": "/?show_hidden=1"},
+        "/project/hidden",
+        query_string={"customer": "가격 정책 초안 공유 미팅", "project": weird_project},
+        data={"hidden": "on"},
     )
-    assert resp.headers["Location"] == "/?show_hidden=1"
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+
+    conn = db.connect(db_path)
+    rows = list(db.list_projects(conn))
+    assert rows[0]["hidden"] == 1
+
+
+def test_project_detail_survives_slash_and_newline_in_project_name(tmp_path):
+    weird_project = "* <@U0B78M35BAR>\n<@U06ULC4CARJ>\nA/B 안건"
+    client, db_path = _make_client(tmp_path)
+    _seed_project(db_path, "가격 정책 초안 공유 미팅", weird_project, "1000.0001")
+
+    resp = client.get(
+        "/project", query_string={"customer": "가격 정책 초안 공유 미팅", "project": weird_project}
+    )
+    assert resp.status_code == 200
 
 
 def test_no_hidden_link_shown_when_nothing_hidden(tmp_path):

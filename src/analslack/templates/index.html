@@ -14,12 +14,14 @@
 
 <section class="card">
   <h2 style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-    <span>전체 사업 목록 ({{ projects|length }}개{% if hidden_count and not show_hidden %} · 숨김 {{ hidden_count }}개 제외{% endif %})</span>
+    <span>전체 사업 목록 (<span id="project-count">{{ projects|length }}</span>개<span id="hidden-note">{% if hidden_count and not show_hidden %} · 숨김 <span id="hidden-count-a">{{ hidden_count }}</span>개 제외{% endif %}</span>)</span>
+    <span id="hidden-toggle-link">
     {% if show_hidden %}
       <a href="{{ url_for('index') }}" style="font-size:12px; font-weight:400;">숨김 항목 제외하고 보기</a>
     {% elif hidden_count %}
-      <a href="{{ url_for('index', show_hidden=1) }}" style="font-size:12px; font-weight:400;">숨김 항목 포함 전체 보기 ({{ hidden_count }}개)</a>
+      <a href="{{ url_for('index', show_hidden=1) }}" style="font-size:12px; font-weight:400;">숨김 항목 포함 전체 보기 (<span id="hidden-count-b">{{ hidden_count }}</span>개)</a>
     {% endif %}
+    </span>
   </h2>
   {% if projects %}
   <table class="data-table">
@@ -44,10 +46,13 @@
         <td class="muted">{{ p['first_ts']|ts_date }}</td>
         <td class="muted">{{ p['last_ts']|ts_date }}</td>
         <td>
-          <form method="post" action="{{ url_for('set_project_hidden', customer=p['customer'], project=p['project']) }}" class="hide-form">
-            <input type="hidden" name="next" value="{{ request.full_path }}">
-            <input type="checkbox" name="hidden" onchange="this.form.submit()" {% if p['hidden'] %}checked{% endif %}>
-          </form>
+          <input
+            type="checkbox"
+            class="hide-toggle"
+            data-customer="{{ p['customer'] }}"
+            data-project="{{ p['project'] }}"
+            {% if p['hidden'] %}checked{% endif %}
+          >
         </td>
       </tr>
     {% endfor %}
@@ -63,5 +68,63 @@
   </p>
   {% endif %}
 </section>
+
+<script>
+(function () {
+  var showHidden = {{ 'true' if show_hidden else 'false' }};
+  var hideUrl = "{{ url_for('set_project_hidden') }}";
+
+  document.querySelectorAll('.hide-toggle').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      var hidden = cb.checked;
+      var row = cb.closest('tr');
+      var customer = cb.dataset.customer;
+      var project = cb.dataset.project;
+      cb.disabled = true;
+
+      fetch(hideUrl + '?customer=' + encodeURIComponent(customer) + '&project=' + encodeURIComponent(project), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'hidden=' + (hidden ? 'on' : '')
+      }).then(function (resp) {
+        if (!resp.ok) throw new Error('요청 실패');
+        cb.disabled = false;
+        if (!showHidden) {
+          // 기본 뷰: 숨기면 행이 즉시 목록에서 빠지고, 해제해도 이 뷰에는
+          // 원래 없던 항목이라 다시 넣지 않는다(다음 새로고침에 반영).
+          if (hidden) {
+            row.style.transition = 'opacity .15s ease';
+            row.style.opacity = '0';
+            setTimeout(function () { row.remove(); }, 150);
+            bumpCount(-1);
+          }
+        } else {
+          // 전체 보기 뷰: 행은 유지하고 흐림 표시만 토글.
+          row.classList.toggle('row-hidden', hidden);
+        }
+        bumpHiddenCount(hidden ? 1 : -1);
+      }).catch(function () {
+        cb.checked = !hidden;
+        cb.disabled = false;
+        alert('숨김 상태 변경에 실패했습니다. 다시 시도해주세요.');
+      });
+    });
+  });
+
+  function bumpCount(delta) {
+    if (!delta) return;
+    var el = document.getElementById('project-count');
+    if (!el) return;
+    el.textContent = Math.max(0, parseInt(el.textContent, 10) + delta);
+  }
+
+  function bumpHiddenCount(delta) {
+    ['hidden-count-a', 'hidden-count-b'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = Math.max(0, parseInt(el.textContent, 10) + delta);
+    });
+  }
+})();
+</script>
 
 {% endblock %}

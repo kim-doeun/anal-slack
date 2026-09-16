@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from flask import Flask, abort, redirect, render_template, request, url_for
+from flask import Flask, abort, jsonify, render_template, request, url_for
 
 from . import charts, db, reports
 from .config import Config
@@ -71,16 +71,27 @@ def create_app(cfg: Config) -> Flask:
             hidden_count=hidden_count,
         )
 
-    @app.route("/project/<customer>/<project>/hidden", methods=["POST"])
-    def set_project_hidden(customer: str, project: str):
+    @app.route("/project/hidden", methods=["POST"])
+    def set_project_hidden():
+        # customer/project는 URL 경로가 아니라 쿼리스트링으로 받는다 — Slack
+        # 메시지에서 그대로 뽑아낸 이름이라 '/'나 줄바꿈 등 경로 라우팅을 깨는
+        # 문자가 섞여 있을 수 있고(예: 잘못 파싱된 프로젝트명), 쿼리스트링/폼
+        # 값으로 다루면 그런 문자가 있어도 깨지지 않는다.
+        customer = request.args.get("customer", "")
+        project = request.args.get("project", "")
+        if not customer or not project:
+            abort(400)
         hidden = request.form.get("hidden") == "on"
         with db.open_db(cfg.db_path) as conn:
             db.set_project_hidden(conn, customer, project, hidden)
-        next_url = request.form.get("next") or url_for("index")
-        return redirect(next_url)
+        return jsonify(ok=True, hidden=hidden)
 
-    @app.route("/project/<customer>/<project>")
-    def project_detail(customer: str, project: str):
+    @app.route("/project")
+    def project_detail():
+        customer = request.args.get("customer", "")
+        project = request.args.get("project", "")
+        if not customer or not project:
+            abort(404)
         with db.open_db(cfg.db_path) as conn:
             history = reports.build_project_history(conn, customer=customer, project=project)
             if not history.rows:
