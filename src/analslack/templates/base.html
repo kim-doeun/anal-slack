@@ -85,6 +85,20 @@
   .hide-toggle { cursor: pointer; }
   tr.row-hidden { opacity: 0.5; }
 
+  .data-table th[data-sort] {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .data-table th[data-sort]:hover { color: var(--text-primary); }
+  .data-table th[data-sort]::after {
+    content: '';
+    display: inline-block;
+    width: 10px;
+  }
+  .data-table th.sort-asc::after { content: '▲'; font-size: 9px; }
+  .data-table th.sort-desc::after { content: '▼'; font-size: 9px; }
+
   .muted { color: var(--text-muted); }
 
   .msg { padding: 6px 0 6px 12px; border-left: 2px solid var(--gridline); margin-bottom: 4px; }
@@ -127,5 +141,43 @@
   <div class="page">
     {% block content %}{% endblock %}
   </div>
+  <script>
+    // 헤더에 data-sort="text"|"number"가 있는 <table data-sortable> 전부에
+    // 클릭 정렬을 붙인다 (모든 페이지 공용).
+    (function () {
+      function cellValue(row, colIndex, type) {
+        var cell = row.children[colIndex];
+        if (!cell) return '';
+        var raw = cell.dataset.sortValue !== undefined ? cell.dataset.sortValue : cell.textContent.trim();
+        return type === 'number' ? (parseFloat(raw.replace(/,/g, '')) || 0) : raw;
+      }
+
+      function sortTable(table, colIndex, type, dir) {
+        var tbody = table.tBodies[0];
+        if (!tbody) return;
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+        rows.sort(function (a, b) {
+          var av = cellValue(a, colIndex, type);
+          var bv = cellValue(b, colIndex, type);
+          var cmp = type === 'number' ? (av - bv) : String(av).localeCompare(String(bv), 'ko');
+          return dir === 'asc' ? cmp : -cmp;
+        });
+        rows.forEach(function (row) { tbody.appendChild(row); });
+      }
+
+      document.querySelectorAll('table[data-sortable]').forEach(function (table) {
+        var headers = Array.prototype.slice.call(table.querySelectorAll('thead th[data-sort]'));
+        headers.forEach(function (th) {
+          th.addEventListener('click', function () {
+            var type = th.dataset.sort;
+            var dir = th.classList.contains('sort-asc') ? 'desc' : 'asc';
+            headers.forEach(function (h) { h.classList.remove('sort-asc', 'sort-desc'); });
+            th.classList.add(dir === 'asc' ? 'sort-asc' : 'sort-desc');
+            sortTable(table, th.cellIndex, type, dir);
+          });
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

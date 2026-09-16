@@ -125,15 +125,32 @@ def create_app(cfg: Config) -> Flask:
 
         with db.open_db(cfg.db_path) as conn:
             report = reports.build_weekly_report(conn, anchor, cfg.timezone)
-            user_names = db.get_user_names(conn)
+            owners = {
+                (p["customer"], p["project"]): (p["owner_name"], p["owner_id"])
+                for p in db.list_projects(conn)
+            }
+
+        summary_rows = []
+        for rows in report.projects.values():
+            first = rows[0]
+            owner_name, owner_id = owners.get((first["customer"], first["project"]), (None, None))
+            summary_rows.append(
+                {
+                    "customer": first["customer"],
+                    "project": first["project"],
+                    "owner_name": owner_name,
+                    "owner_id": owner_id,
+                    "message_count": len(rows),
+                }
+            )
 
         return render_template(
             "weekly.html",
             report=report,
+            summary_rows=summary_rows,
             anchor=anchor,
             prev_week=(anchor - timedelta(days=7)).isoformat(),
             next_week=(anchor + timedelta(days=7)).isoformat(),
-            user_names=user_names,
         )
 
     return app

@@ -1,4 +1,5 @@
 import sys
+from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -186,3 +187,94 @@ def test_no_hidden_link_shown_when_nothing_hidden(tmp_path):
     resp = client.get("/")
     body = resp.get_data(as_text=True)
     assert "숨김 항목 포함" not in body
+
+
+def test_index_table_has_sortable_headers_in_requested_order(tmp_path):
+    client, db_path = _make_client(tmp_path)
+    _seed_project(db_path, "삼성전자", "ERP고도화", "1000.0001")
+
+    resp = client.get("/")
+    body = resp.get_data(as_text=True)
+    thead = body.split("<thead>", 1)[1].split("</thead>", 1)[0]
+    headers = [h.split("<", 1)[0] for h in thead.split(">") if h.strip() and "<th" not in h]
+    # data-sortable 테이블인지, 요청한 순서(고객사,프로젝트,담당자,시작일,최근활동,메시지,숨김)인지 확인
+    assert 'table class="data-table" data-sortable' in body
+    assert thead.index("고객사") < thead.index("프로젝트") < thead.index("담당자")
+    assert thead.index("담당자") < thead.index("시작일") < thead.index("최근 활동")
+    assert thead.index("최근 활동") < thead.index("메시지") < thead.index("숨김")
+    assert 'data-sort="number">메시지' in thead
+    assert 'data-sort="text">고객사' in thead
+
+
+def _seed_project_at(db_path, customer, project, thread_ts, created_ts, owner_name="담당자"):
+    conn = db.connect(db_path)
+    db.upsert_thread(
+        conn,
+        db.ThreadRow(
+            thread_ts=thread_ts,
+            channel_id="C1",
+            customer=customer,
+            project=project,
+            title_raw=f"[{customer}-{project}]",
+            title_matched=True,
+            permalink=None,
+            created_ts=created_ts,
+        ),
+    )
+    db.upsert_message(
+        conn,
+        db.MessageRow(
+            ts=thread_ts,
+            thread_ts=thread_ts,
+            channel_id="C1",
+            is_parent=True,
+            user_id="U1",
+            user_name=owner_name,
+            text=f"[{customer}-{project}] 킥오프",
+            created_ts=created_ts,
+        ),
+    )
+    db.upsert_message(
+        conn,
+        db.MessageRow(
+            ts=thread_ts + ".0002",
+            thread_ts=thread_ts,
+            channel_id="C1",
+            is_parent=False,
+            user_id="U2",
+            user_name="다른사람",
+            text="댓글",
+            created_ts=created_ts + 3600,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_weekly_page_renders_summary_table(tmp_path):
+    client, db_path = _make_client(tmp_path)
+    ts_this_week = datetime.now(TZ).replace(hour=10, minute=0, second=0, microsecond=0).timestamp()
+    _seed_project_at(db_path, "삼성전자", "ERP고도화", "5000.0001", ts_this_week, owner_name="김영업")
+
+    resp = client.get("/weekly")
+    body = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert "주간 사업별 공유 현황" in body
+    assert "table class=\"data-table\" data-sortable" in body
+    assert "삼성전자" in body
+    assert "ERP고도화" in body
+    assert "김영업" in body
+    # _seed_project_at은 메시지 2건(작성자 킥오프 + 댓글)을 같은 주에 만든다
+    assert ">2<" in body.split("ERP고도화", 1)[1][:300]
+
+
+def test_weekly_page_headers_match_requested_columns(tmp_path):
+    client, db_path = _make_client(tmp_path)
+    ts_this_week = datetime.now(TZ).replace(hour=10, minute=0, second=0, microsecond=0).timestamp()
+    _seed_project_at(db_path, "LG전자", "AI챗봇", "6000.0001", ts_this_week)
+
+    resp = client.get("/weekly")
+    body = resp.get_data(as_text=True)
+    thead = body.split("<thead>", 1)[1].split("</thead>", 1)[0]
+    assert thead.index("고객사") < thead.index("프로젝트") < thead.index("담당자") < thead.index("메시지")
+    assert 'data-sort="number">메시지' in thead

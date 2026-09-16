@@ -8,28 +8,32 @@
   <a href="{{ url_for('weekly', week_of=next_week) }}">다음 주 &rarr;</a>
 </div>
 
-{% if not report.projects %}
 <section class="card">
-  <p class="muted">이번 주 공유된 내용이 없습니다.</p>
-</section>
-{% else %}
-  {% for project_key, rows in report.projects.items() %}
-  <section class="card">
-    <h2 style="margin-bottom:2px;">
-      {% set first = rows[0] %}
-      <a href="{{ url_for('project_detail', customer=first['customer'], project=first['project']) }}">{{ project_key }}</a>
-    </h2>
-    {% if first['permalink'] %}
-      <p class="muted" style="margin-top:0;"><a href="{{ first['permalink'] }}" target="_blank" rel="noopener">Slack 스레드 보기</a></p>
-    {% endif %}
-    {% for row in rows %}
-      <div class="msg{% if row['is_parent'] %} msg-parent{% endif %}">
-        <div class="msg-meta">{{ row['created_ts']|ts_datetime }} · {{ row['user_name'] or row['user_id'] or 'unknown' }}</div>
-        <p>{{ row['text']|mentions(user_names) }}</p>
-      </div>
+  <h2>주간 사업별 공유 현황 ({{ summary_rows|length }}개)</h2>
+  {% if summary_rows %}
+  <table class="data-table" data-sortable>
+    <thead>
+      <tr>
+        <th data-sort="text">고객사</th>
+        <th data-sort="text">프로젝트</th>
+        <th data-sort="text">담당자</th>
+        <th data-sort="number">메시지</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in summary_rows %}
+      <tr>
+        <td><a href="{{ url_for('project_detail', customer=row['customer'], project=row['project']) }}">{{ row['customer'] }}</a></td>
+        <td><a class="col-project" href="{{ url_for('project_detail', customer=row['customer'], project=row['project']) }}">{{ row['project']|truncate(100, True, '...') }}</a></td>
+        <td>{{ row['owner_name'] or row['owner_id'] or '-' }}</td>
+        <td>{{ row['message_count'] }}</td>
+      </tr>
     {% endfor %}
-  </section>
-  {% endfor %}
-{% endif %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">이번 주 공유된 내용이 없습니다.</p>
+  {% endif %}
+</section>
 
 {% endblock %}
