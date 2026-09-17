@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from flask import Flask, abort, jsonify, render_template, request, url_for
+from flask import Flask, abort, jsonify, redirect, render_template, request, url_for
 
 from . import charts, db, reports
 from .config import Config
+from .forecast import ForecastParseError, parse_excel
 from .mentions import resolve_mentions
 
 TOP_PROJECTS_LIMIT = 15
@@ -14,6 +15,7 @@ TREND_WEEKS = 12
 
 def create_app(cfg: Config) -> Flask:
     app = Flask(__name__)
+    app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 엑셀 업로드 크기 제한 (25MB)
 
     def ts_date(ts) -> str:
         if ts is None:
@@ -155,6 +157,47 @@ def create_app(cfg: Config) -> Flask:
             prev_week=(anchor - timedelta(days=7)).isoformat(),
             next_week=(anchor + timedelta(days=7)).isoformat(),
         )
+
+    @app.route("/forecast")
+    def sales_forecast():
+        with db.open_db(cfg.db_path) as conn:
+            forecast = db.get_sales_forecast(conn)
+
+        column_sort_types = []
+        if forecast:
+            for i in range(len(forecast.columns)):
+                values = [row[i] for row in forecast.rows if i < len(row) and row[i] is not None]
+                is_numeric = bool(values) and all(
+                    isinstance(v, (int, float)) and not isinstance(v, bool) for v in values
+                )
+                column_sort_types.append("number" if is_numeric else "text")
+
+        return render_template(
+            "forecast.html",
+            forecast=forecast,
+            column_sort_types=column_sort_types,
+            error=request.args.get("error"),
+        )
+
+    @app.route("/forecast/upload", methods=["POST"])
+    def sales_forecast_upload():
+        file = request.files.get("file")
+        if not file or not file.filename:
+            return redirect(url_for("sales_forecast", error="업로드할 엑셀 파일을 선택해주세요."))
+        if not file.filename.lower().endswith((".xlsx", ".xlsm")):
+            return redirect(
+                url_for("sales_forecast", error="xlsx 형식의 엑셀 파일만 업로드할 수 있습니다.")
+            )
+
+        try:
+            columns, rows = parse_excel(file.stream)
+        except ForecastParseError as e:
+            return redirect(url_for("sales_forecast", error=str(e)))
+
+        with db.open_db(cfg.db_path) as conn:
+            db.replace_sales_forecast(conn, file.filename, columns, rows)
+
+        return redirect(url_for("sales_forecast"))
 
     return app
 

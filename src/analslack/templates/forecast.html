@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}세일즈포케스트 · Sales 사업 대시보드{% endblock %}
+{% block content %}
+
+<section class="card">
+  <h2>세일즈포케스트</h2>
+
+  {% if error %}
+  <p class="upload-error">{{ error }}</p>
+  {% endif %}
+
+  <form class="upload-form" method="post" action="{{ url_for('sales_forecast_upload') }}" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".xlsx,.xlsm" required>
+    <button type="submit">업로드</button>
+    {% if forecast %}
+      <span class="muted">
+        현재: {{ forecast.filename }} · {{ forecast.rows|length }}행 ·
+        업로드 {{ forecast.uploaded_at|ts_datetime }}
+      </span>
+    {% endif %}
+  </form>
+  <p class="muted" style="margin-top:-8px;">
+    xlsx 파일의 첫 행을 컬럼으로 사용합니다. 새로 업로드하면 기존 데이터는
+    전체 교체됩니다(최신 1개만 유지).
+  </p>
+
+  {% if forecast and forecast.rows %}
+  <div class="grid-scroll">
+    <table class="grid-table" data-sortable>
+      <thead>
+        <tr>
+          {% for col in forecast.columns %}
+            <th data-sort="{{ column_sort_types[loop.index0] }}">{{ col }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in forecast.rows %}
+        <tr>
+          {% for cell in row %}
+            <td>{{ cell if cell is not none else '' }}</td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% elif forecast %}
+  <p class="muted">업로드된 파일에 데이터 행이 없습니다.</p>
+  {% else %}
+  <p class="muted">아직 업로드된 세일즈포케스트가 없습니다. 위에서 엑셀 파일을 업로드하세요.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

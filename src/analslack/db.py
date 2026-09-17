@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Iterator, Optional, Sequence
+from typing import Any, Iterator, Optional, Sequence
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS threads (
@@ -59,6 +60,22 @@ CREATE TABLE IF NOT EXISTS hidden_projects (
     project   TEXT NOT NULL,
     hidden_at REAL NOT NULL,
     PRIMARY KEY (customer, project)
+);
+
+-- 세일즈 포케스트: 엑셀 업로드본 1개만 유지(업로드할 때마다 전체 교체).
+-- 컬럼 구조를 미리 고정하지 않고 업로드된 파일의 헤더를 그대로 쓰므로
+-- id=1 싱글턴 행에 컬럼 목록(JSON)을 두고, 실제 데이터는 행 단위로
+-- sales_forecast_rows에 JSON으로 저장한다.
+CREATE TABLE IF NOT EXISTS sales_forecast_meta (
+    id           INTEGER PRIMARY KEY CHECK (id = 1),
+    filename     TEXT NOT NULL,
+    uploaded_at  REAL NOT NULL,
+    columns_json TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sales_forecast_rows (
+    row_index   INTEGER PRIMARY KEY,
+    values_json TEXT NOT NULL
 );
 """
 
@@ -300,3 +317,56 @@ def count_messages_in_range(
         params.append(project)
     row = conn.execute(query, params).fetchone()
     return row[0] if row else 0
+
+
+@dataclass(frozen=True)
+class SalesForecast:
+    filename: str
+    uploaded_at: float
+    columns: "list[str]"
+    rows: "list[list[Any]]"
+
+
+def replace_sales_forecast(
+    conn: sqlite3.Connection,
+    filename: str,
+    columns: "list[str]",
+    rows: "list[list[Any]]",
+) -> None:
+    """업로드된 엑셀 내용으로 기존 포케스트를 통째로 교체한다."""
+    conn.execute("DELETE FROM sales_forecast_rows")
+    conn.execute(
+        """
+        INSERT INTO sales_forecast_meta (id, filename, uploaded_at, columns_json)
+        VALUES (1, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            filename=excluded.filename,
+            uploaded_at=excluded.uploaded_at,
+            columns_json=excluded.columns_json
+        """,
+        (filename, time.time(), json.dumps(columns, ensure_ascii=False)),
+    )
+    conn.executemany(
+        "INSERT INTO sales_forecast_rows (row_index, values_json) VALUES (?, ?)",
+        (
+            (i, json.dumps(row, ensure_ascii=False, default=str))
+            for i, row in enumerate(rows)
+        ),
+    )
+
+
+def get_sales_forecast(conn: sqlite3.Connection) -> Optional[SalesForecast]:
+    meta = conn.execute(
+        "SELECT filename, uploaded_at, columns_json FROM sales_forecast_meta WHERE id = 1"
+    ).fetchone()
+    if not meta:
+        return None
+    row_records = conn.execute(
+        "SELECT values_json FROM sales_forecast_rows ORDER BY row_index"
+    ).fetchall()
+    return SalesForecast(
+        filename=meta["filename"],
+        uploaded_at=meta["uploaded_at"],
+        columns=json.loads(meta["columns_json"]),
+        rows=[json.loads(r["values_json"]) for r in row_records],
+    )

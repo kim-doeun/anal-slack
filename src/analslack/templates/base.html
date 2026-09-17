@@ -16,6 +16,7 @@
     --baseline:        #c3c2b7;
     --border:          rgba(11,11,11,0.10);
     --series-1:        #2a78d6;
+    --status-critical: #d03b3b;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -29,6 +30,7 @@
       --baseline:        #383835;
       --border:          rgba(255,255,255,0.10);
       --series-1:        #3987e5;
+      --status-critical: #d03b3b;
     }
   }
 
@@ -112,6 +114,56 @@
   tr.detail-row td { background: var(--page-plane); padding: 10px 10px 10px 34px; }
   tr.detail-row[hidden] { display: none; }
 
+  /* 컬럼이 많은 표(세일즈 포케스트 등): 가로+세로 스크롤, 헤더/첫 컬럼 고정 */
+  .grid-scroll {
+    max-height: 72vh;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .grid-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .grid-table th, .grid-table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--gridline);
+    border-right: 1px solid var(--gridline);
+    text-align: left;
+  }
+  .grid-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--surface-1);
+    color: var(--text-muted);
+    font-weight: 600;
+    z-index: 2;
+  }
+  .grid-table td:first-child, .grid-table th:first-child {
+    position: sticky;
+    left: 0;
+    background: var(--surface-1);
+    z-index: 1;
+  }
+  .grid-table thead th:first-child { z-index: 3; }
+  .grid-table tbody tr:hover td { background: var(--page-plane); }
+  .grid-table tbody tr:hover td:first-child { background: var(--page-plane); }
+
+  .upload-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .upload-error {
+    color: var(--status-critical);
+    font-size: 13px;
+    margin: 0 0 12px;
+  }
+
   .muted { color: var(--text-muted); }
 
   .msg { padding: 6px 0 6px 12px; border-left: 2px solid var(--gridline); margin-bottom: 4px; }
@@ -150,6 +202,7 @@
     <span class="brand">Sales 사업 대시보드</span>
     <a href="{{ url_for('index') }}">전체 사업</a>
     <a href="{{ url_for('weekly') }}">주간 리포트</a>
+    <a href="{{ url_for('sales_forecast') }}">세일즈포케스트</a>
   </nav>
   <div class="page">
     {% block content %}{% endblock %}
