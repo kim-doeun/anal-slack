@@ -250,6 +250,39 @@ sudo analslack serve --port 80 --host 0.0.0.0
 두 방법 모두 EC2 **보안 그룹 인바운드 규칙**에 해당 포트(80)가 열려 있어야
 외부에서 접속됩니다.
 
+#### 데몬(systemd)으로 운영하기
+
+터미널을 닫아도 계속 떠 있고, 죽으면 자동 재시작되고, 재부팅 후에도 자동으로
+다시 뜨게 하려면 systemd 서비스로 등록하세요. 유닛 파일 템플릿을 `deploy/`에
+넣어뒀습니다.
+
+```bash
+# 1. gunicorn 설치 (아직 안 했다면)
+source .venv/bin/activate
+pip install -e ".[prod]"
+
+# 2. 유닛 파일의 User/경로를 실제 환경에 맞게 고친 뒤 설치
+#    (기본은 nginx 뒤에서 127.0.0.1:8080로 도는 구성 — "80번 포트로 열기" 방법 1과 짝)
+sudo cp deploy/analslack.service.example /etc/systemd/system/analslack.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now analslack
+
+# 상태/로그 확인
+sudo systemctl status analslack
+journalctl -u analslack -f
+```
+
+nginx 없이 80번을 바로 열고 싶다면 `deploy/analslack-port80.service.example`을
+대신 쓰세요 — `AmbientCapabilities=CAP_NET_BIND_SERVICE` 덕분에 프로세스를
+root로 띄우지 않고도(일반 사용자로) 1024 미만 포트에 바인딩할 수 있어서,
+앞서 나온 `sudo` 실행이나 `setcap` 방법보다 안전합니다.
+
+코드를 `git pull`로 업데이트한 뒤에는 재시작해야 반영됩니다:
+
+```bash
+sudo systemctl restart analslack
+```
+
 ## 테스트
 
 Slack 연결 없이 파싱/취합 로직만 검증합니다. (가상환경 활성화된 상태에서)

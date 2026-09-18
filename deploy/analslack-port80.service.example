@@ -1,0 +1,33 @@
+# nginx 없이 gunicorn이 80번 포트를 직접 열고 싶을 때 쓰는 대안 유닛.
+#
+# AmbientCapabilities=CAP_NET_BIND_SERVICE 덕분에 서비스는 root가 아닌
+# 일반 사용자(ubuntu)로 돌면서도 1024 미만 포트에 바인딩할 수 있다.
+# sudo로 프로세스 전체를 root로 띄우는 것보다 훨씬 안전한 방법.
+#
+# 사용법은 analslack.service.example과 동일 (파일명만
+# /etc/systemd/system/analslack.service 로 복사).
+#
+# 참고: 이 방식은 외부에 gunicorn이 직접 노출된다. 여러 도메인을 두거나
+# TLS(https)를 붙이고 싶다면 nginx를 앞에 두는 analslack.service.example
+# 쪽을 권장한다.
+
+[Unit]
+Description=analslack Sales Slack Dashboard (direct :80)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/anal-slack
+ExecStart=/home/ubuntu/anal-slack/.venv/bin/gunicorn "analslack.web:create_wsgi_app()" -w 2 -b 0.0.0.0:80
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

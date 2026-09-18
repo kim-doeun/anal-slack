@@ -1,0 +1,35 @@
+# systemd 서비스 유닛 템플릿.
+#
+# 사용법:
+#   1. User/WorkingDirectory/ExecStart의 경로를 실제 환경에 맞게 고치기
+#      (venv에 gunicorn 설치 필요: pip install -e ".[prod]")
+#   2. sudo cp deploy/analslack.service.example /etc/systemd/system/analslack.service
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable --now analslack
+#   5. sudo systemctl status analslack
+#      journalctl -u analslack -f   # 로그 실시간 확인
+#
+# 코드를 git pull로 업데이트한 뒤에는 재시작해야 반영됩니다:
+#   sudo systemctl restart analslack
+
+[Unit]
+Description=analslack Sales Slack Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/anal-slack
+# .env 파일(SLACK_BOT_TOKEN 등)은 WorkingDirectory 안에 있으면 자동으로 읽힘
+ExecStart=/home/ubuntu/anal-slack/.venv/bin/gunicorn "analslack.web:create_wsgi_app()" -w 2 -b 127.0.0.1:8080
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+# 서비스 자체 보호 옵션 (필요 없으면 지워도 무방)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
