@@ -1,0 +1,13 @@
+services:
+  analslack:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # nginx 등으로 80을 앞에 두려면 이 매핑은 127.0.0.1:8080:8080 권장
+    env_file:
+      - .env
+    volumes:
+      - analslack-data:/data   # SQLite DB 영속화 (컨테이너 재생성해도 유지)
+
+volumes:
+  analslack-data:

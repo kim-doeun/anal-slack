@@ -283,6 +283,40 @@ root로 띄우지 않고도(일반 사용자로) 1024 미만 포트에 바인딩
 sudo systemctl restart analslack
 ```
 
+#### Docker Compose로 운영하기
+
+systemd 대신 Docker Compose로도 데몬처럼 운영할 수 있습니다. `Dockerfile`,
+`docker-compose.yml`을 레포에 포함해뒀습니다 — venv/시스템 파이썬 걱정 없이
+컨테이너 하나로 뜹니다.
+
+```bash
+cp .env.example .env
+# .env에 SLACK_BOT_TOKEN 등 설정 (docker compose가 이 파일을 읽음)
+
+docker compose up -d --build     # 빌드 + 데몬으로 기동 (재부팅 시 Docker가 다시 띄움)
+docker compose logs -f           # 로그 확인
+docker compose ps                # 상태 확인
+```
+
+- 기본은 `8080` 포트로 뜹니다 (`docker-compose.yml`의 `ports`에서 조정).
+  80으로 직접 열려면 `"80:8080"`으로 바꾸면 되고(권한 문제 없음 — 호스트 포트
+  바인딩은 dockerd가 처리), nginx를 앞에 두려면 `"127.0.0.1:8080:8080"`으로
+  바꿔서 컨테이너를 외부에 직접 노출하지 않는 걸 권장합니다.
+- SQLite DB는 named volume(`analslack-data`)에 저장되므로 컨테이너를
+  지우고 다시 만들어도 데이터가 유지됩니다. `docker compose down`은 볼륨을
+  지우지 않지만 `docker compose down -v`는 지우니 주의하세요. `.env`에
+  `ANALSLACK_DB_PATH`를 직접 지정하면 이 볼륨(`/data`) 밖을 가리키게 될 수
+  있으니, 컨테이너 환경에서는 보통 비워두는 걸 권장합니다.
+- `sync`는 웹 서버와 별개로 컨테이너 안에서 실행합니다:
+  ```bash
+  docker compose exec analslack analslack sync
+  ```
+  주기적으로 돌리려면 호스트의 cron에서 위 명령을 실행하도록 등록하세요.
+- 코드를 `git pull`로 업데이트한 뒤에는 이미지를 다시 빌드해야 반영됩니다:
+  ```bash
+  docker compose up -d --build
+  ```
+
 ## 테스트
 
 Slack 연결 없이 파싱/취합 로직만 검증합니다. (가상환경 활성화된 상태에서)
